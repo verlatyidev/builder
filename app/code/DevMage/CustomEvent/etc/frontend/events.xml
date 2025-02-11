@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <event name="devmage_custom_event">
+        <observer name="devmage_custom_observer"
+                  instance="DevMage\CustomEvent\Observer\CustomObserver"/>
+    </event>
+
+    <event name="checkout_cart_product_add_after">
+        <observer name="devmage_observer_cart_test"
+                  instance="DevMage\CustomEvent\Observer\CartObserver"/>
+    </event>
+</config>
