@@ -7,10 +7,13 @@ namespace DevMage\Catalog\Console\Command;
 use Exception;
 use Magento\Catalog\Model\ResourceModel\Product\Collection;
 use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory;
+use Magento\Framework\App\State;
 use Magento\Framework\Console\Cli;
+use Magento\Framework\Exception\LocalizedException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Magento\Framework\App\Area;
 
 class ProductListCollection extends Command
 {
@@ -18,9 +21,11 @@ class ProductListCollection extends Command
 
     /**
      * @param CollectionFactory $productCollectionFactory
+     * @param State $appState
      */
     public function __construct(
-        private readonly CollectionFactory $productCollectionFactory
+        private readonly CollectionFactory $productCollectionFactory,
+        private readonly State $appState
     ) {
         parent::__construct();
     }
@@ -41,6 +46,11 @@ class ProductListCollection extends Command
      */
     public function execute(InputInterface $input, OutputInterface $output): int
     {
+        try {
+            $this->appState->setAreaCode(Area::AREA_ADMINHTML);
+        } catch (LocalizedException $e) {
+        }
+
         $start = microtime(true);
         $pageSize = self::PAGE_SIZE;
         $processedCount = 0;
@@ -71,12 +81,21 @@ class ProductListCollection extends Command
             }
 
             foreach ($batchCollection as $product) {
-                $output->writeln(sprintf(
-                    '<info>SKU:</info> %s | <info>Name:</info> %s',
-                    $product->getSku(),
-                    $product->getName()
-                ));
-                $processedCount++;
+                try {
+                    $randomDesc = $this->generateRandomDescription();
+                    $product->setDescription($randomDesc);
+
+                    $product->getResource()->saveAttribute($product, 'description');
+
+                    $output->writeln(sprintf(
+                        '<info>Updated SKU:</info> %s | <info>Description:</info> %s',
+                        $product->getSku(),
+                        $randomDesc
+                    ));
+                    $processedCount++;
+                } catch (Exception $e) {
+                    $output->writeln("<error>Error on SKU {$product->getSku()}: {$e->getMessage()}</error>");
+                }
             }
 
             $batchCollection->clear();
@@ -102,6 +121,7 @@ class ProductListCollection extends Command
         try {
             $collection = $this->productCollectionFactory->create();
             $collection->addAttributeToSelect(['*']);
+            //$collection->addAttributeToSelect(['sku', 'description']);
             $collection->addFieldToFilter('entity_id', ['in' => $batchIds]);
             $collection->addFieldToFilter('status', 1);
 
@@ -109,5 +129,22 @@ class ProductListCollection extends Command
         } catch (Exception $e) {
             return [];
         }
+    }
+
+    /**
+     * @return string
+     */
+    private function generateRandomDescription(): string
+    {
+        $phrases = [
+            'High quality item.',
+            'Limited stock available!',
+            'Customer favorite.',
+            'New updated version.',
+            'Great value guaranteed.',
+            'Top seller this week!',
+        ];
+
+        return $phrases[array_rand($phrases)];
     }
 }
